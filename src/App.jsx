@@ -137,6 +137,11 @@ function App() {
     );
   };
 
+  const deleteEmployee = async (id) => {
+    await API.employees.delete(id);
+    setEmployees(employees.filter((emp) => emp.id !== id));
+  };
+
   const checkIn = async (employeeId) => {
     const newShift = {
       id: Date.now().toString(),
@@ -1218,7 +1223,6 @@ function App() {
         <div className="space-y-4">
           {myShifts.map((shift) => {
             const payment = calculateShiftPayment(shift, currentUser);
-            console.log({ payment });
             return (
               <div key={shift.id} className="bg-white border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-3">
@@ -1272,6 +1276,12 @@ function App() {
         await addEmployee(newEmployeeName.trim());
         setNewEmployeeName("");
         setShowAddEmployee(false);
+      }
+    };
+
+    const handleDeleteEmployee = async (employeeId) => {
+      if (employeeId) {
+        await deleteEmployee(employeeId);
       }
     };
 
@@ -1496,7 +1506,7 @@ function App() {
                 </div>
               ) : (
                 <div>
-                  <div className="flex justify-between items-start mb-2">
+                  <div className="flex justify-between items-start m-2">
                     <div>
                       <p className="font-semibold">{emp.name}</p>
                       <p className="text-sm text-gray-600">
@@ -1509,12 +1519,20 @@ function App() {
                         </p>
                       )}
                     </div>
-                    <button
-                      onClick={() => startEdit(emp)}
-                      className="text-blue-600 hover:text-blue-700"
-                    >
-                      Edit
-                    </button>
+                    <div className="flex justify-between m-2">
+                      <button
+                        onClick={() => startEdit(emp)}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEmployee(emp.id)}
+                        className="text-red-600 hover:text-red-700 m-2"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <div className="bg-gray-50 p-3 rounded mt-2">
                     <div className="flex items-center gap-2">

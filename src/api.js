@@ -44,6 +44,17 @@ const API = {
         console.log("Error updating employees", e);
       }
     },
+    async delete(id) {
+      try {
+        const { error } = await supabase
+          .from("employees")
+          .delete()
+          .eq("id", id);
+        if (error) throw error;
+      } catch (e) {
+        console.log("Error updating employees", e);
+      }
+    },
   },
 
   // Inventory operations
@@ -112,6 +123,14 @@ const API = {
         console.log("Error creating sale", e);
       }
     },
+    async delete(id) {
+      try {
+        const { error } = await supabase.from("sales").delete().eq("id", id);
+        if (error) throw error;
+      } catch (e) {
+        console.log("Error deleting shift", e);
+      }
+    },
   },
 
   // Shifts operations
@@ -143,6 +162,14 @@ const API = {
           .eq("id", id);
       } catch (e) {
         console.log("Error updating shift", e);
+      }
+    },
+    async delete(id) {
+      try {
+        const { error } = await supabase.from("shifts").delete().eq("id", id);
+        if (error) throw error;
+      } catch (e) {
+        console.log("Error deleting shift", e);
       }
     },
   },
