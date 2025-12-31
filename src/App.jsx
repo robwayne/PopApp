@@ -17,9 +17,15 @@ import {
   ChevronDown,
   ChevronUp,
   QrCode,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
+import API from "./api";
 
-// Utility functions
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
+
 const formatCurrency = (amount) => `₪${amount.toFixed(2)}`;
 const formatTime = (date) =>
   new Date(date).toLocaleTimeString("en-US", {
@@ -52,6 +58,10 @@ const fileToBase64 = (file) =>
 const CATEGORIES = ["Top", "Bottom", "Shoe", "Jacket", "Dress"];
 const PAYMENT_METHODS = ["cash", "paybox", "bit", "bank_transfer"];
 
+// =============================================================================
+// MAIN APPLICATION COMPONENT
+// =============================================================================
+
 function App() {
   const [currentScreen, setCurrentScreen] = useState("login");
   const [currentUser, setCurrentUser] = useState(null);
@@ -71,43 +81,34 @@ function App() {
       accountNumber: "",
     },
   });
+  const [audits, setAudits] = useState([]);
 
   useEffect(() => {
-    loadData();
+    loadAllData();
   }, []);
 
-  const loadData = async () => {
-    try {
-      const [
-        empResult,
-        invResult,
-        salesResult,
-        shiftsResult,
-        paymentInfoResult,
-      ] = await Promise.all([
-        window.storage.get("employees").catch(() => null),
-        window.storage.get("inventory").catch(() => null),
-        window.storage.get("sales").catch(() => null),
-        window.storage.get("shifts").catch(() => null),
-        window.storage.get("paymentInfo").catch(() => null),
-      ]);
-      if (empResult?.value) setEmployees(JSON.parse(empResult.value));
-      if (invResult?.value) setInventory(JSON.parse(invResult.value));
-      if (salesResult?.value) setSales(JSON.parse(salesResult.value));
-      if (shiftsResult?.value) setShifts(JSON.parse(shiftsResult.value));
-      if (paymentInfoResult?.value)
-        setPaymentInfo(JSON.parse(paymentInfoResult.value));
-    } catch (error) {
-      console.error("Error loading data:", error);
-    }
-  };
-
-  const saveData = async (key, data) => {
-    try {
-      await window.storage.set(key, JSON.stringify(data));
-    } catch (error) {
-      console.error(`Error saving ${key}:`, error);
-    }
+  const loadAllData = async () => {
+    const [
+      employeesData,
+      inventoryData,
+      salesData,
+      shiftsData,
+      paymentInfoData,
+      auditsData,
+    ] = await Promise.all([
+      API.employees.getAll(),
+      API.inventory.getAll(),
+      API.sales.getAll(),
+      API.shifts.getAll(),
+      API.paymentInfo.get(),
+      API.audits.getAll(),
+    ]);
+    setEmployees(employeesData);
+    setInventory(inventoryData);
+    setSales(salesData);
+    setShifts(shiftsData);
+    setPaymentInfo(paymentInfoData);
+    setAudits(auditsData);
   };
 
   const addEmployee = async (name, role = "employee") => {
@@ -115,91 +116,82 @@ function App() {
       id: Date.now().toString(),
       name,
       role,
-      hourlyRate: 0,
-      commissionRate: 0,
-      paymentTiers: [{ minSales: 0, maxSales: null, type: "hourly_only" }],
-      qrCode: `EMP-${Date.now()}`,
-      createdAt: new Date().toISOString(),
+      hourly_rate: 0,
+      commission_rate: 0,
+      payment_tiers: [{ minSales: 0, maxSales: null, type: "hourly_only" }],
+      qr_code: `EMP-${Date.now()}`,
+      created_at: new Date().toISOString(),
     };
-    const updated = [...employees, newEmployee];
-    setEmployees(updated);
-    await saveData("employees", updated);
+    await API.employees.create(newEmployee);
+    setEmployees([...employees, newEmployee]);
     return newEmployee;
   };
 
-  const deleteInventoryItem = async (id) => {
-    const updated = inventory.filter((item) => item.id !== id);
-    setInventory(updated);
-    await saveData("inventory", updated);
-  };
-
-  const updatePaymentInfo = async (info) => {
-    setPaymentInfo(info);
-    await saveData("paymentInfo", info);
-  };
-
   const updateEmployee = async (id, updates) => {
-    const updated = employees.map((emp) =>
-      emp.id === id ? { ...emp, ...updates } : emp
+    await API.employees.update(id, updates);
+    setEmployees(
+      employees.map((emp) => (emp.id === id ? { ...emp, ...updates } : emp))
     );
-    setEmployees(updated);
-    await saveData("employees", updated);
   };
 
   const checkIn = async (employeeId) => {
     const newShift = {
       id: Date.now().toString(),
       employeeId,
-      checkInTime: new Date().toISOString(),
-      checkOutTime: null,
+      check_in_time: new Date().toISOString(),
+      check_out_time: null,
       active: true,
     };
-    const updated = [...shifts, newShift];
-    setShifts(updated);
-    await saveData("shifts", updated);
+    await API.shifts.create(newShift);
+    setShifts([...shifts, newShift]);
   };
 
   const checkOut = async (shiftId) => {
-    const updated = shifts.map((shift) =>
-      shift.id === shiftId
-        ? { ...shift, checkOutTime: new Date().toISOString(), active: false }
-        : shift
+    const updates = { checkOutTime: new Date().toISOString(), active: false };
+    await API.shifts.update(shiftId, updates);
+    setShifts(
+      shifts.map((shift) =>
+        shift.id === shiftId ? { ...shift, ...updates } : shift
+      )
     );
-    setShifts(updated);
-    await saveData("shifts", updated);
   };
 
-  const getActiveShift = (employeeId) =>
-    shifts.find((s) => s.employeeId === employeeId && s.active);
+  const getActiveShift = (employeeId) => {
+    const shift = shifts.find((s) => s.employeeId === employeeId && s.active);
+    // console.log({ shift });
+    return shift;
+  };
 
   const addInventoryItem = async (item) => {
     const newItem = {
       ...item,
       id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
-    const updated = [...inventory, newItem];
-    setInventory(updated);
-    await saveData("inventory", updated);
+    await API.inventory.create(newItem);
+    setInventory([...inventory, newItem]);
     return newItem;
   };
 
   const updateInventoryItem = async (id, updates) => {
-    const updated = inventory.map((item) =>
-      item.id === id ? { ...item, ...updates } : item
+    await API.inventory.update(id, updates);
+    setInventory(
+      inventory.map((item) => (item.id === id ? { ...item, ...updates } : item))
     );
-    setInventory(updated);
-    await saveData("inventory", updated);
+  };
+
+  const deleteInventoryItem = async (id) => {
+    await API.inventory.delete(id);
+    setInventory(inventory.filter((item) => item.id !== id));
   };
 
   const decrementInventory = async (itemId, quantity) => {
-    const updated = inventory.map((item) =>
-      item.id === itemId
-        ? { ...item, quantity: Math.max(0, item.quantity - quantity) }
-        : item
-    );
-    setInventory(updated);
-    await saveData("inventory", updated);
+    const item = inventory.find((i) => i.id === itemId);
+    if (item) {
+      await updateInventoryItem(itemId, {
+        quantity: Math.max(0, item.quantity - quantity),
+      });
+    }
   };
 
   const addSale = async (saleData) => {
@@ -208,42 +200,52 @@ function App() {
       id: Date.now().toString(),
       timestamp: new Date().toISOString(),
     };
-    const updated = [...sales, newSale];
-    setSales(updated);
-    await saveData("sales", updated);
+    await API.sales.create(newSale);
+    setSales([...sales, newSale]);
     for (const item of saleData.items) {
       if (item.existingItemId)
         await decrementInventory(item.existingItemId, item.quantity);
     }
   };
 
-  const calculateShiftPayment = (shift, employee) => {
-    const isActive = !shift.checkOutTime;
-    const endTime = isActive ? new Date() : new Date(shift.checkOutTime);
-    const hoursWorked = calculateHoursWorked(shift.checkInTime, endTime);
-    const hourlyPay = hoursWorked * (employee.hourlyRate || 0);
+  const updatePaymentInfo = async (info) => {
+    await API.paymentInfo.update(info);
+    setPaymentInfo(info);
+  };
 
-    // Calculate sales during shift
+  const createAudit = async (auditData) => {
+    const newAudit = {
+      ...auditData,
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+    };
+    await API.audits.create(newAudit);
+    setAudits([...audits, newAudit]);
+  };
+
+  const calculateShiftPayment = (shift, employee) => {
+    const isActive = !shift.check_out_time;
+    const endTime = isActive ? new Date() : new Date(shift.check_out_time);
+    const hoursWorked = calculateHoursWorked(shift.check_in_time, endTime);
+    const hourlyPay = hoursWorked * (employee.hourly_rate || 0);
+
     const shiftSales = sales.filter((sale) => {
       const saleTime = new Date(sale.timestamp);
-      const shiftStart = new Date(shift.checkInTime);
+      const shiftStart = new Date(shift.check_in_time);
       return (
         sale.employeeId === employee.id &&
         saleTime >= shiftStart &&
-        (!shift.checkOutTime || saleTime <= endTime)
+        (!shift.check_out_time || saleTime <= endTime)
       );
     });
 
     const totalSales = shiftSales.reduce((sum, sale) => sum + sale.total, 0);
-
-    // Calculate commission based on tiers
     let commission = 0;
     let paymentTier = "base_only";
     let activeTierIndex = -1;
 
-    if (employee.paymentTiers && employee.paymentTiers.length > 0) {
-      // Find applicable tier
-      const tierIndex = employee.paymentTiers.findIndex((t) => {
+    if (employee.payment_tiers && employee.payment_tiers.length > 0) {
+      const tierIndex = employee.payment_tiers.findIndex((t) => {
         const meetsMin = totalSales >= (t.minSales || 0);
         const meetsMax = t.maxSales === null || totalSales <= t.maxSales;
         return meetsMin && meetsMax;
@@ -251,24 +253,23 @@ function App() {
 
       if (tierIndex >= 0) {
         activeTierIndex = tierIndex;
-        const tier = employee.paymentTiers[tierIndex];
+        const tier = employee.payment_tiers[tierIndex];
         if (tier.type === "hourly_plus_commission") {
           commission =
             totalSales *
-            ((tier.commissionRate || employee.commissionRate || 0) / 100);
+            ((tier.commission_rate || employee.commission_rate || 0) / 100);
           paymentTier = `${
-            tier.commissionRate || employee.commissionRate
+            tier.commission_rate || employee.commission_rate
           }% commission`;
         } else {
           paymentTier = "base_only";
         }
       }
     } else {
-      // Fallback to simple commission rate
-      commission = totalSales * ((employee.commissionRate || 0) / 100);
+      commission = totalSales * ((employee.commission_rate || 0) / 100);
       paymentTier =
-        employee.commissionRate > 0
-          ? `${employee.commissionRate}% commission`
+        employee.commission_rate > 0
+          ? `${employee.commission_rate}% commission`
           : "base_only";
     }
 
@@ -289,7 +290,9 @@ function App() {
     setCurrentScreen("login");
   };
 
-  // Login Component
+  // =============================================================================
+  // UI COMPONENTS
+  // =============================================================================
   const Login = () => {
     const [qrInput, setQrInput] = useState("");
     const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -297,7 +300,7 @@ function App() {
     const [adminPassword, setAdminPassword] = useState("");
 
     const handleLogin = () => {
-      const employee = employees.find((e) => e.qrCode === qrInput);
+      const employee = employees.find((e) => e.qr_code === qrInput);
       if (employee) {
         setCurrentUser(employee);
         setCurrentScreen("dashboard");
@@ -307,7 +310,6 @@ function App() {
     };
 
     const handleAdminLogin = () => {
-      // Default admin credentials
       if (adminUsername === "admin" && adminPassword === "admin123") {
         setCurrentUser({ id: "admin", name: "Admin", role: "admin" });
         setCurrentScreen("dashboard");
@@ -321,9 +323,7 @@ function App() {
         <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
             <Package className="w-16 h-16 mx-auto text-blue-600 mb-4" />
-            <h1 className="text-3xl font-bold text-gray-800">
-              Pepper Panic Vintage
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-800">Pop-Up Store</h1>
             <p className="text-gray-600">Management System</p>
           </div>
 
@@ -409,7 +409,6 @@ function App() {
     );
   };
 
-  // Navigation Menu
   const NavigationMenu = () => {
     const isAdmin = currentUser?.role === "admin";
 
@@ -418,6 +417,12 @@ function App() {
       { label: "Check In/Out", screen: "checkin", icon: LogIn, show: true },
       { label: "Inventory", screen: "inventory", icon: Package, show: true },
       { label: "Record Sale", screen: "sales", icon: DollarSign, show: true },
+      {
+        label: "Inventory Audit",
+        screen: "audit",
+        icon: CheckCircle,
+        show: true,
+      },
       { label: "Sales Log", screen: "saleslog", icon: Clock, show: true },
       {
         label: "Payment Info",
@@ -455,9 +460,7 @@ function App() {
     return (
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">
-            Pepper Panic Vintage Management System
-          </h1>
+          <h1 className="text-xl font-bold text-gray-800">Pop-Up Store</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{currentUser?.name}</span>
             <button
@@ -502,7 +505,6 @@ function App() {
     );
   };
 
-  // Dashboard
   const Dashboard = () => {
     const activeShifts = shifts.filter((s) => s.active);
     const todaySales = sales.filter(
@@ -575,7 +577,7 @@ function App() {
                       <div>
                         <p className="font-bold text-lg">{employee.name}</p>
                         <p className="text-sm text-gray-600">
-                          Started: {formatTime(shift.checkInTime)}
+                          Started: {formatTime(shift.check_in_time)}
                         </p>
                         <p className="text-xs text-gray-500">
                           {payment.hoursWorked.toFixed(2)} hours worked
@@ -634,6 +636,400 @@ function App() {
     );
   };
 
+  // Inventory List with Grouping
+  const InventoryList = () => {
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortBy, setSortBy] = useState("name");
+    const [sortOrder, setSortOrder] = useState("asc");
+    const [editingItem, setEditingItem] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState("all");
+
+    let filteredInventory = inventory.filter(
+      (item) =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.variation &&
+          item.variation.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
+    if (selectedCategory !== "all") {
+      filteredInventory = filteredInventory.filter(
+        (item) => item.category === selectedCategory
+      );
+    }
+
+    filteredInventory.sort((a, b) => {
+      const multiplier = sortOrder === "asc" ? 1 : -1;
+      if (sortBy === "name") return multiplier * a.name.localeCompare(b.name);
+      if (sortBy === "quantity") return multiplier * (a.quantity - b.quantity);
+      return 0;
+    });
+
+    // Group by category
+    const groupedInventory = CATEGORIES.reduce((acc, category) => {
+      acc[category] = filteredInventory.filter(
+        (item) => item.category === category
+      );
+      return acc;
+    }, {});
+
+    if (editingItem) {
+      return (
+        <InventoryForm
+          item={editingItem}
+          onSave={async (updates) => {
+            await updateInventoryItem(editingItem.id, updates);
+            setEditingItem(null);
+          }}
+          onCancel={() => setEditingItem(null)}
+        />
+      );
+    }
+
+    const isAdmin = currentUser?.role === "admin";
+
+    return (
+      <div className="p-4 max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">Inventory</h1>
+
+        <div className="mb-4 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search inventory..."
+              className="w-full pl-10 pr-4 py-3 border rounded-lg"
+            />
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="flex-1 p-2 border rounded-lg"
+            >
+              <option value="all">All Categories</option>
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="flex-1 p-2 border rounded-lg"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="quantity">Sort by Quantity</option>
+            </select>
+            <button
+              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+              className="p-2 border rounded-lg hover:bg-gray-50"
+            >
+              {sortOrder === "asc" ? (
+                <ChevronUp className="w-5 h-5" />
+              ) : (
+                <ChevronDown className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6 mb-6">
+          {CATEGORIES.map((category) => {
+            const items = groupedInventory[category];
+            if (
+              items.length === 0 &&
+              selectedCategory !== "all" &&
+              selectedCategory !== category
+            )
+              return null;
+
+            return (
+              <div key={category}>
+                <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">
+                    {category}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    ({items.length} items)
+                  </span>
+                </h2>
+                <div className="space-y-3">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white border rounded-lg p-4 flex gap-4"
+                    >
+                      {item.image && (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-20 h-20 object-cover rounded"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{item.name}</h3>
+                        {item.variation && (
+                          <p className="text-sm text-gray-600">
+                            {item.variation}
+                          </p>
+                        )}
+                        {item.description && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            {item.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-lg font-bold">
+                            {formatCurrency(item.price)}
+                          </span>
+                          <span
+                            className={`text-sm ${
+                              item.quantity === 0
+                                ? "text-red-600 font-semibold"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            Qty: {item.quantity}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => setEditingItem(item)}
+                          className="text-blue-600 hover:text-blue-700 px-4"
+                        >
+                          Edit
+                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`Delete "${item.name}"?`)) {
+                                await deleteInventoryItem(item.id);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-700 px-4"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {items.length === 0 && (
+                    <p className="text-center text-gray-400 py-4">
+                      No items in this category
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => setCurrentScreen("additem")}
+          className="w-full bg-purple-600 text-white p-4 rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
+        >
+          <Plus className="w-5 h-5" />
+          Add New Item
+        </button>
+      </div>
+    );
+  };
+
+  // Inventory Audit Component
+  const InventoryAudit = () => {
+    const isAdmin = currentUser?.role === "admin";
+    const [auditStatus, setAuditStatus] = useState({});
+    const [notes, setNotes] = useState("");
+
+    const handleToggleItem = (itemId) => {
+      setAuditStatus((prev) => ({
+        ...prev,
+        [itemId]: !prev[itemId],
+      }));
+    };
+
+    const handleCompleteAudit = async () => {
+      const checkedItems = Object.keys(auditStatus).filter(
+        (id) => auditStatus[id]
+      );
+      const missingItems = inventory.filter((item) => !auditStatus[item.id]);
+
+      await createAudit({
+        performed_by: currentUser.id,
+        performer_name: currentUser.name,
+        checked_items: checkedItems.length,
+        missing_items: missingItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+        })),
+        notes,
+      });
+
+      alert("Audit completed successfully!");
+      setAuditStatus({});
+      setNotes("");
+    };
+
+    // Group by category
+    const groupedInventory = CATEGORIES.reduce((acc, category) => {
+      acc[category] = inventory.filter((item) => item.category === category);
+      return acc;
+    }, {});
+
+    const totalItems = inventory.length;
+    const checkedItems = Object.values(auditStatus).filter(Boolean).length;
+    const missingItems = inventory.filter((item) => !auditStatus[item.id]);
+
+    return (
+      <div className="p-4 max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-6">Inventory Audit</h1>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-gray-700 mb-2">
+            Review all inventory items and mark each as "In Stock" to verify
+            physical inventory matches the system.
+          </p>
+          <div className="flex justify-between text-sm font-semibold">
+            <span>
+              Progress: {checkedItems} / {totalItems} items checked
+            </span>
+            <span className="text-blue-600">
+              {((checkedItems / totalItems) * 100).toFixed(0)}%
+            </span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all"
+              style={{ width: `${(checkedItems / totalItems) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {missingItems.length > 0 && isAdmin && (
+          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <h3 className="font-bold text-red-800">
+                Missing Items ({missingItems.length})
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {missingItems.map((item) => (
+                <div key={item.id} className="text-sm">
+                  <span className="font-semibold">{item.name}</span>
+                  <span className="text-gray-600"> ({item.category})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-6 mb-6">
+          {CATEGORIES.map((category) => {
+            const items = groupedInventory[category];
+            if (items.length === 0) return null;
+
+            const categoryChecked = items.filter(
+              (item) => auditStatus[item.id]
+            ).length;
+
+            return (
+              <div key={category}>
+                <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm">
+                    {category}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {categoryChecked} / {items.length} checked
+                  </span>
+                </h2>
+                <div className="space-y-2">
+                  {items.map((item) => {
+                    const isChecked = auditStatus[item.id];
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleToggleItem(item.id)}
+                        className={`border rounded-lg p-4 flex items-center gap-4 cursor-pointer transition-all ${
+                          isChecked
+                            ? "bg-green-50 border-green-500"
+                            : "bg-white hover:bg-gray-50"
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                            isChecked
+                              ? "bg-green-500 border-green-500"
+                              : "border-gray-300"
+                          }`}
+                        >
+                          {isChecked && (
+                            <Check className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                        {item.image && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <h3 className="font-semibold">{item.name}</h3>
+                          {item.variation && (
+                            <p className="text-sm text-gray-600">
+                              {item.variation}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-500">
+                            Expected Qty: {item.quantity}
+                          </p>
+                        </div>
+                        {isChecked && (
+                          <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                            In Stock
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-semibold mb-2">
+            Audit Notes (Optional)
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="w-full p-3 border rounded-lg"
+            rows="3"
+            placeholder="Add any notes about discrepancies or observations..."
+          />
+        </div>
+
+        <button
+          onClick={handleCompleteAudit}
+          disabled={checkedItems === 0}
+          className="w-full bg-green-600 text-white p-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <CheckCircle className="w-5 h-5" />
+          Complete Audit
+        </button>
+      </div>
+    );
+  };
+
   // Check In/Out
   const CheckInOut = () => {
     return (
@@ -651,7 +1047,7 @@ function App() {
                   <p className="font-semibold">{emp.name}</p>
                   {activeShift && (
                     <p className="text-sm text-gray-600">
-                      Checked in at {formatTime(activeShift.checkInTime)}
+                      Checked in at {formatTime(activeShift.check_in_time)}
                     </p>
                   )}
                 </div>
@@ -695,7 +1091,7 @@ function App() {
           <div className="bg-teal-50 border-2 border-teal-500 rounded-lg p-6 mb-6">
             <h2 className="font-bold text-lg mb-4">Current Shift (Active)</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Started at {formatTime(activeShift.checkInTime)}
+              Started at {formatTime(activeShift.check_in_time)}
             </p>
 
             <div className="space-y-3">
@@ -707,7 +1103,7 @@ function App() {
               </div>
               <div className="flex justify-between items-center py-2 border-b">
                 <span className="text-gray-700">
-                  Base Pay ({formatCurrency(currentUser.hourlyRate)}/hr)
+                  Base Pay ({formatCurrency(currentUser.hourly_rate)}/hr)
                 </span>
                 <span className="font-semibold text-blue-600">
                   {formatCurrency(payment.hourlyPay)}
@@ -742,55 +1138,57 @@ function App() {
         <div className="bg-white border rounded-lg p-4 mb-6">
           <p className="text-sm text-gray-600 mb-2">Hourly Rate</p>
           <p className="text-2xl font-bold mb-3">
-            {formatCurrency(currentUser.hourlyRate)}/hour
+            {formatCurrency(currentUser.hourly_rate)}/hour
           </p>
           <p className="text-sm text-gray-600 mb-2">Base Commission Rate</p>
           <p className="text-2xl font-bold mb-3">
-            {currentUser.commissionRate}%
+            {currentUser.commission_rate}%
           </p>
 
-          {currentUser.paymentTiers && currentUser.paymentTiers.length > 0 && (
-            <>
-              <p className="text-sm text-gray-600 mb-2 mt-4">Payment Tiers</p>
-              <div className="space-y-2">
-                {currentUser.paymentTiers.map((tier, index) => {
-                  const isActive = payment && payment.activeTierIndex === index;
-                  return (
-                    <div
-                      key={index}
-                      className={`p-3 rounded border text-sm ${
-                        isActive
-                          ? "bg-yellow-100 border-yellow-500 border-2"
-                          : "bg-gray-50"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <p className="font-semibold text-gray-700">
-                          Tier {index + 1}
+          {currentUser.payment_tiers &&
+            currentUser.payment_tiers.length > 0 && (
+              <>
+                <p className="text-sm text-gray-600 mb-2 mt-4">Payment Tiers</p>
+                <div className="space-y-2">
+                  {currentUser.payment_tiers.map((tier, index) => {
+                    const isActive =
+                      payment && payment.activeTierIndex === index;
+                    return (
+                      <div
+                        key={index}
+                        className={`p-3 rounded border text-sm ${
+                          isActive
+                            ? "bg-yellow-100 border-yellow-500 border-2"
+                            : "bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <p className="font-semibold text-gray-700">
+                            Tier {index + 1}
+                          </p>
+                          {isActive && (
+                            <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded font-bold">
+                              ACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600">
+                          Sales: {formatCurrency(tier.minSales || 0)} -{" "}
+                          {tier.maxSales
+                            ? formatCurrency(tier.maxSales)
+                            : "Unlimited"}
                         </p>
-                        {isActive && (
-                          <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded font-bold">
-                            ACTIVE
-                          </span>
-                        )}
+                        <p className="text-gray-600">
+                          {tier.type === "hourly_only"
+                            ? "Base hourly pay only"
+                            : `Base + ${tier.commission_rate}% commission`}
+                        </p>
                       </div>
-                      <p className="text-gray-600">
-                        Sales: {formatCurrency(tier.minSales || 0)} -{" "}
-                        {tier.maxSales
-                          ? formatCurrency(tier.maxSales)
-                          : "Unlimited"}
-                      </p>
-                      <p className="text-gray-600">
-                        {tier.type === "hourly_only"
-                          ? "Base hourly pay only"
-                          : `Base + ${tier.commissionRate}% commission`}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+                    );
+                  })}
+                </div>
+              </>
+            )}
         </div>
       </div>
     );
@@ -800,7 +1198,7 @@ function App() {
   const MyShifts = () => {
     const myShifts = shifts
       .filter((s) => s.employeeId === currentUser.id && !s.active)
-      .sort((a, b) => new Date(b.checkInTime) - new Date(a.checkInTime));
+      .sort((a, b) => new Date(b.check_in_time) - new Date(a.check_in_time));
 
     return (
       <div className="p-4 max-w-4xl mx-auto">
@@ -808,6 +1206,7 @@ function App() {
         <div className="space-y-4">
           {myShifts.map((shift) => {
             const payment = calculateShiftPayment(shift, currentUser);
+            console.log({ payment });
             return (
               <div key={shift.id} className="bg-white border rounded-lg p-4">
                 <div className="flex justify-between items-start mb-3">
@@ -867,9 +1266,9 @@ function App() {
     const handleSaveRates = async () => {
       if (editingEmployee) {
         await updateEmployee(editingEmployee.id, {
-          hourlyRate: parseFloat(hourlyRate) || 0,
-          commissionRate: parseFloat(commissionRate) || 0,
-          paymentTiers: paymentTiers,
+          hourly_rate: parseFloat(hourlyRate) || 0,
+          commission_rate: parseFloat(commissionRate) || 0,
+          payment_tiers: paymentTiers,
         });
         setEditingEmployee(null);
         setHourlyRate("");
@@ -880,10 +1279,10 @@ function App() {
 
     const startEdit = (emp) => {
       setEditingEmployee(emp);
-      setHourlyRate(emp.hourlyRate.toString());
-      setCommissionRate(emp.commissionRate.toString());
+      setHourlyRate(emp.hourly_rate.toString());
+      setCommissionRate(emp.commission_rate.toString());
       setPaymentTiers(
-        emp.paymentTiers || [
+        emp.payment_tiers || [
           { minSales: 0, maxSales: null, type: "hourly_only" },
         ]
       );
@@ -892,7 +1291,12 @@ function App() {
     const addTier = () => {
       setPaymentTiers([
         ...paymentTiers,
-        { minSales: 0, maxSales: null, type: "hourly_only", commissionRate: 0 },
+        {
+          minSales: 0,
+          maxSales: null,
+          type: "hourly_only",
+          commission_rate: 0,
+        },
       ]);
     };
 
@@ -932,7 +1336,7 @@ function App() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">
-                        Base Hourly Rate (₪)
+                        Base Hourly Rate ($)
                       </label>
                       <input
                         type="number"
@@ -991,7 +1395,7 @@ function App() {
                           <div className="grid grid-cols-2 gap-2 mb-2">
                             <div>
                               <label className="block text-xs text-gray-600 mb-1">
-                                Min Sales (₪)
+                                Min Sales ($)
                               </label>
                               <input
                                 type="number"
@@ -1005,7 +1409,7 @@ function App() {
                             </div>
                             <div>
                               <label className="block text-xs text-gray-600 mb-1">
-                                Max Sales (₪) - leave empty for unlimited
+                                Max Sales ($) - leave empty for unlimited
                               </label>
                               <input
                                 type="number"
@@ -1045,11 +1449,11 @@ function App() {
                                 <input
                                   type="number"
                                   step="0.1"
-                                  value={tier.commissionRate || 0}
+                                  value={tier.commission_rate || 0}
                                   onChange={(e) =>
                                     updateTier(
                                       index,
-                                      "commissionRate",
+                                      "commission_rate",
                                       e.target.value
                                     )
                                   }
@@ -1084,12 +1488,12 @@ function App() {
                     <div>
                       <p className="font-semibold">{emp.name}</p>
                       <p className="text-sm text-gray-600">
-                        {formatCurrency(emp.hourlyRate)}/hr •{" "}
-                        {emp.commissionRate}% base commission
+                        {formatCurrency(emp.hourly_rate)}/hr •{" "}
+                        {emp.commission_rate}% base commission
                       </p>
-                      {emp.paymentTiers && emp.paymentTiers.length > 1 && (
+                      {emp.payment_tiers && emp.payment_tiers.length > 1 && (
                         <p className="text-xs text-blue-600 mt-1">
-                          {emp.paymentTiers.length} payment tiers configured
+                          {emp.payment_tiers.length} payment tiers configured
                         </p>
                       )}
                     </div>
@@ -1103,7 +1507,7 @@ function App() {
                   <div className="bg-gray-50 p-3 rounded mt-2">
                     <div className="flex items-center gap-2">
                       <QrCode className="w-5 h-5" />
-                      <span className="font-mono text-sm">{emp.qrCode}</span>
+                      <span className="font-mono text-sm">{emp.qr_code}</span>
                     </div>
                   </div>
                 </div>
@@ -1146,159 +1550,6 @@ function App() {
             Add New Employee
           </button>
         )}
-      </div>
-    );
-  };
-
-  // Inventory with sorting
-  const InventoryList = () => {
-    const [searchQuery, setSearchQuery] = useState("");
-    const [sortBy, setSortBy] = useState("name");
-    const [sortOrder, setSortOrder] = useState("asc");
-    const [editingItem, setEditingItem] = useState(null);
-
-    let filteredInventory = inventory.filter(
-      (item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.variation &&
-          item.variation.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-
-    filteredInventory.sort((a, b) => {
-      const multiplier = sortOrder === "asc" ? 1 : -1;
-      if (sortBy === "name") return multiplier * a.name.localeCompare(b.name);
-      if (sortBy === "quantity") return multiplier * (a.quantity - b.quantity);
-      return 0;
-    });
-
-    if (editingItem) {
-      return (
-        <InventoryForm
-          item={editingItem}
-          onSave={async (updates) => {
-            await updateInventoryItem(editingItem.id, updates);
-            setEditingItem(null);
-          }}
-          onCancel={() => setEditingItem(null)}
-        />
-      );
-    }
-
-    const isAdmin = currentUser?.role === "admin";
-
-    return (
-      <div className="p-4 max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Inventory</h1>
-
-        <div className="mb-4 space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search inventory..."
-              className="w-full pl-10 pr-4 py-3 border rounded-lg"
-            />
-          </div>
-          <div className="flex gap-2">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="flex-1 p-2 border rounded-lg"
-            >
-              <option value="name">Sort by Name</option>
-              <option value="quantity">Sort by Quantity</option>
-            </select>
-            <button
-              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
-              className="p-2 border rounded-lg hover:bg-gray-50"
-            >
-              {sortOrder === "asc" ? (
-                <ChevronUp className="w-5 h-5" />
-              ) : (
-                <ChevronDown className="w-5 h-5" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3 mb-6">
-          {filteredInventory.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white border rounded-lg p-4 flex gap-4"
-            >
-              {item.image && (
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-20 h-20 object-cover rounded"
-                />
-              )}
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold">{item.name}</h3>
-                  {item.category && (
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
-                      {item.category}
-                    </span>
-                  )}
-                </div>
-                {item.variation && (
-                  <p className="text-sm text-gray-600">{item.variation}</p>
-                )}
-                {item.description && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    {item.description}
-                  </p>
-                )}
-                <div className="flex items-center gap-4 mt-2">
-                  <span className="text-lg font-bold">
-                    {formatCurrency(item.price)}
-                  </span>
-                  <span
-                    className={`text-sm ${
-                      item.quantity === 0
-                        ? "text-red-600 font-semibold"
-                        : "text-gray-600"
-                    }`}
-                  >
-                    Qty: {item.quantity}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setEditingItem(item)}
-                  className="text-blue-600 hover:text-blue-700 px-4"
-                >
-                  Edit
-                </button>
-                {isAdmin && (
-                  <button
-                    onClick={async () => {
-                      if (window.confirm(`Delete "${item.name}"?`)) {
-                        await deleteInventoryItem(item.id);
-                      }
-                    }}
-                    className="text-red-600 hover:text-red-700 px-4"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={() => setCurrentScreen("additem")}
-          className="w-full bg-purple-600 text-white p-4 rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add New Item
-        </button>
       </div>
     );
   };
@@ -1631,10 +1882,12 @@ function App() {
             existingItemId: item.existingItemId,
           })),
           total,
-          proofOfPurchase: [proofOfPurchase1, proofOfPurchase2].filter(Boolean),
-          itemPhoto,
-          paymentMethods: paymentMethods,
-          employeeId: selectedEmployee,
+          proof_of_purchase: [proofOfPurchase1, proofOfPurchase2].filter(
+            Boolean
+          ),
+          item_photo: itemPhoto,
+          payment_methods: paymentMethods,
+          employee_id: selectedEmployee,
         });
 
         setSelectedItems([]);
@@ -2074,7 +2327,7 @@ function App() {
     if (filterPayment !== "all") {
       filteredSales = filteredSales.filter(
         (sale) =>
-          sale.paymentMethods && sale.paymentMethods.includes(filterPayment)
+          sale.payment_methods && sale.payment_methods.includes(filterPayment)
       );
     }
 
@@ -2151,17 +2404,17 @@ function App() {
         <div className="space-y-4">
           {filteredSales.map((sale) => {
             const employee = employees.find((e) => e.id === sale.employeeId);
-            const paymentDisplay = sale.paymentMethods
-              ? sale.paymentMethods
+            const paymentDisplay = sale.payment_methods
+              ? sale.payment_methods
                   .map((m) => (m === "bank_transfer" ? "Bank Transfer" : m))
                   .join(" + ")
               : sale.paymentType || "N/A";
             return (
               <div key={sale.id} className="bg-white border rounded-lg p-4">
                 <div className="flex gap-4 mb-3">
-                  {sale.itemPhoto && (
+                  {sale.item_photo && (
                     <img
-                      src={sale.itemPhoto}
+                      src={sale.item_photo}
                       alt="Sale items"
                       className="w-32 h-32 object-cover rounded border"
                     />
@@ -2204,23 +2457,24 @@ function App() {
                   </div>
                 </div>
 
-                {sale.proofOfPurchase && sale.proofOfPurchase.length > 0 && (
-                  <div className="pt-3 border-t">
-                    <p className="text-xs font-semibold text-gray-600 mb-2">
-                      Proof of Purchase
-                    </p>
-                    <div className="flex gap-2">
-                      {sale.proofOfPurchase.map((proof, idx) => (
-                        <img
-                          key={idx}
-                          src={proof}
-                          alt={`Proof ${idx + 1}`}
-                          className="w-32 h-32 object-contain rounded border bg-gray-50"
-                        />
-                      ))}
+                {sale.proof_of_purchase &&
+                  sale.proof_of_purchase.length > 0 && (
+                    <div className="pt-3 border-t">
+                      <p className="text-xs font-semibold text-gray-600 mb-2">
+                        Proof of Purchase
+                      </p>
+                      <div className="flex gap-2">
+                        {sale.proof_of_purchase.map((proof, idx) => (
+                          <img
+                            key={idx}
+                            src={proof}
+                            alt={`Proof ${idx + 1}`}
+                            className="w-32 h-32 object-contain rounded border bg-gray-50"
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             );
           })}
@@ -2241,7 +2495,9 @@ function App() {
           {employees.map((emp) => {
             const empShifts = shifts
               .filter((s) => s.employeeId === emp.id && !s.active)
-              .sort((a, b) => new Date(b.checkInTime) - new Date(a.checkInTime))
+              .sort(
+                (a, b) => new Date(b.check_in_time) - new Date(a.check_in_time)
+              )
               .slice(0, 5);
             if (empShifts.length === 0) return null;
 
@@ -2259,11 +2515,11 @@ function App() {
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <p className="text-sm font-semibold">
-                              {formatDate(shift.checkInTime)}
+                              {formatDate(shift.check_in_time)}
                             </p>
                             <p className="text-xs text-gray-600">
-                              {formatTime(shift.checkInTime)} -{" "}
-                              {formatTime(shift.checkOutTime)} •{" "}
+                              {formatTime(shift.check_in_time)} -{" "}
+                              {formatTime(shift.check_out_time)} •{" "}
                               {payment.hoursWorked.toFixed(2)} hours
                             </p>
                           </div>
@@ -2301,7 +2557,7 @@ function App() {
   const ShiftLog = () => {
     const completedShifts = shifts.filter((s) => !s.active);
     const shiftsByDate = completedShifts.reduce((acc, shift) => {
-      const date = new Date(shift.checkInTime).toDateString();
+      const date = new Date(shift.check_in_time).toDateString();
       if (!acc[date]) acc[date] = [];
       acc[date].push(shift);
       return acc;
@@ -2316,12 +2572,12 @@ function App() {
         <div className="space-y-6">
           {sortedDates.map((date) => {
             const dayShifts = shiftsByDate[date].sort(
-              (a, b) => new Date(b.checkInTime) - new Date(a.checkInTime)
+              (a, b) => new Date(b.check_in_time) - new Date(a.check_in_time)
             );
             const totalHours = dayShifts.reduce(
               (sum, shift) =>
                 sum +
-                calculateHoursWorked(shift.checkInTime, shift.checkOutTime),
+                calculateHoursWorked(shift.check_in_time, shift.check_out_time),
               0
             );
 
@@ -2348,15 +2604,15 @@ function App() {
                             {employee?.name || "Unknown"}
                           </p>
                           <p className="text-sm text-gray-600">
-                            {formatTime(shift.checkInTime)} -{" "}
-                            {formatTime(shift.checkOutTime)}
+                            {formatTime(shift.check_in_time)} -{" "}
+                            {formatTime(shift.check_out_time)}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-blue-600">
                             {formatDuration(
-                              shift.checkInTime,
-                              shift.checkOutTime
+                              shift.check_in_time,
+                              shift.check_out_time
                             )}
                           </p>
                         </div>
@@ -2718,6 +2974,7 @@ function App() {
       {currentScreen === "dashboard" && <Dashboard />}
       {currentScreen === "checkin" && <CheckInOut />}
       {currentScreen === "inventory" && <InventoryList />}
+      {currentScreen === "audit" && <InventoryAudit />}
       {currentScreen === "additem" && (
         <InventoryForm
           onSave={async (item) => {
