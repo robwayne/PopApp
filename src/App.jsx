@@ -26,6 +26,9 @@ import API from "./api";
 // UTILITY FUNCTIONS
 // =============================================================================
 
+const DEFAULT_ADMIN_USERNAME = "tina";
+const DEFAULT_ADMIN_PASSWORD = "pepperpanicvintage";
+
 const formatCurrency = (amount) => `₪${amount.toFixed(2)}`;
 const formatTime = (date) =>
   new Date(date).toLocaleTimeString("en-US", {
@@ -310,8 +313,11 @@ function App() {
     };
 
     const handleAdminLogin = () => {
-      if (adminUsername === "admin" && adminPassword === "admin123") {
-        setCurrentUser({ id: "admin", name: "Admin", role: "admin" });
+      if (
+        adminUsername === DEFAULT_ADMIN_USERNAME &&
+        DEFAULT_ADMIN_PASSWORD === DEFAULT_ADMIN_PASSWORD
+      ) {
+        setCurrentUser({ id: "admin", name: "Tina", role: "admin" });
         setCurrentScreen("dashboard");
       } else {
         alert("Invalid credentials");
