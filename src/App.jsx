@@ -323,7 +323,9 @@ function App() {
         <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
             <Package className="w-16 h-16 mx-auto text-blue-600 mb-4" />
-            <h1 className="text-3xl font-bold text-gray-800">Pop-Up Store</h1>
+            <h1 className="text-3xl font-bold text-gray-800">
+              Pepper Panic Vintage
+            </h1>
             <p className="text-gray-600">Management System</p>
           </div>
 
@@ -460,7 +462,9 @@ function App() {
     return (
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">Pop-Up Store</h1>
+          <h1 className="text-xl font-bold text-gray-800">
+            Pepper Panic Vintage Management System
+          </h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{currentUser?.name}</span>
             <button
