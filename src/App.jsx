@@ -375,7 +375,9 @@ function App() {
                   <input
                     type="text"
                     value={adminUsername}
-                    onChange={(e) => setAdminUsername(e.target.value)}
+                    onChange={(e) =>
+                      setAdminUsername(e.target.value.trim().toLowerCase())
+                    }
                     className="w-full p-3 border rounded-lg"
                     placeholder="admin"
                   />
