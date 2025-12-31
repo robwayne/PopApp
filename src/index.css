@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: global polish */
+@layer base {
+  body {
+    @apply bg-gray-100 text-slate-900;
+  }
+}

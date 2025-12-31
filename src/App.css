@@ -1,0 +1,227 @@
+/* App.css */
+
+/* Layout wrapper */
+.min-h-screen {
+  min-height: 100vh;
+  background: #f3f4f6;
+}
+
+/* Page padding */
+.p-4 {
+  padding: 16px;
+}
+
+/* Width containers */
+.max-w-4xl {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.max-w-2xl {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Headings */
+.text-2xl {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+/* ===== DASHBOARD METRIC CARDS ===== */
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-cols-1 {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .md\:grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Card base */
+.rounded-lg {
+  border-radius: 16px;
+}
+
+.bg-blue-50 {
+  background: #eff6ff;
+}
+
+.bg-green-50 {
+  background: #f0fdf4;
+}
+
+.bg-purple-50 {
+  background: #faf5ff;
+}
+
+.bg-orange-50 {
+  background: #fff7ed;
+}
+
+.p-4 {
+  padding: 16px;
+}
+
+/* Card header row */
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.mb-2 {
+  margin-bottom: 8px;
+}
+
+.mb-6 {
+  margin-bottom: 24px;
+}
+
+/* Card values */
+.text-3xl {
+  font-size: 2.25rem;
+  font-weight: 800;
+}
+
+/* ===== BUTTONS ===== */
+
+button {
+  border: none;
+  outline: none;
+}
+
+/* Big dashboard buttons */
+button.bg-blue-600,
+button.bg-purple-600,
+button.bg-green-600,
+button.bg-gray-600,
+button.bg-indigo-600,
+button.bg-teal-600 {
+  border-radius: 16px;
+  padding: 20px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform 0.05s ease, background 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+/* Button colors */
+.bg-blue-600 {
+  background: #3b5fe2;
+  color: white;
+}
+.bg-purple-600 {
+  background: #8b45e6;
+  color: white;
+}
+.bg-green-600 {
+  background: #4ea657;
+  color: white;
+}
+.bg-gray-600 {
+  background: #6b7280;
+  color: white;
+}
+.bg-indigo-600 {
+  background: #4f46e5;
+  color: white;
+}
+.bg-teal-600 {
+  background: #0d9488;
+  color: white;
+}
+
+/* Hover states */
+.bg-blue-600:hover {
+  background: #2f4fd6;
+}
+.bg-purple-600:hover {
+  background: #7a36d4;
+}
+.bg-green-600:hover {
+  background: #3f8f4a;
+}
+
+/* ===== INPUTS ===== */
+
+input,
+select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  font-size: 1rem;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* ===== LIST ITEMS / ROWS ===== */
+
+.bg-white {
+  background: white;
+}
+
+.border {
+  border: 1px solid #e5e7eb;
+}
+
+.text-gray-600 {
+  color: #4b5563;
+}
+
+.text-gray-500 {
+  color: #6b7280;
+}
+
+/* ===== IMAGE STYLES ===== */
+
+.object-cover {
+  object-fit: cover;
+}
+
+.rounded {
+  border-radius: 12px;
+}
+
+/* ===== UTILITY ===== */
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
