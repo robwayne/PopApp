@@ -50,7 +50,7 @@ const fileToBase64 = (file) =>
   });
 
 const CATEGORIES = ["Top", "Bottom", "Shoe", "Jacket", "Dress"];
-const PAYMENT_METHODS = ["cash", "paybox", "bit"];
+const PAYMENT_METHODS = ["cash", "paybox", "bit", "bank_transfer"];
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("login");
@@ -60,6 +60,17 @@ function App() {
   const [inventory, setInventory] = useState([]);
   const [sales, setSales] = useState([]);
   const [shifts, setShifts] = useState([]);
+  const [paymentInfo, setPaymentInfo] = useState({
+    bit: { name: "", phone: "" },
+    paybox: { name: "", phone: "" },
+    bank_transfer: {
+      name: "",
+      bankName: "",
+      bankNumber: "",
+      branchNumber: "",
+      accountNumber: "",
+    },
+  });
 
   useEffect(() => {
     loadData();
@@ -67,17 +78,25 @@ function App() {
 
   const loadData = async () => {
     try {
-      const [empResult, invResult, salesResult, shiftsResult] =
-        await Promise.all([
-          window.storage.get("employees").catch(() => null),
-          window.storage.get("inventory").catch(() => null),
-          window.storage.get("sales").catch(() => null),
-          window.storage.get("shifts").catch(() => null),
-        ]);
+      const [
+        empResult,
+        invResult,
+        salesResult,
+        shiftsResult,
+        paymentInfoResult,
+      ] = await Promise.all([
+        window.storage.get("employees").catch(() => null),
+        window.storage.get("inventory").catch(() => null),
+        window.storage.get("sales").catch(() => null),
+        window.storage.get("shifts").catch(() => null),
+        window.storage.get("paymentInfo").catch(() => null),
+      ]);
       if (empResult?.value) setEmployees(JSON.parse(empResult.value));
       if (invResult?.value) setInventory(JSON.parse(invResult.value));
       if (salesResult?.value) setSales(JSON.parse(salesResult.value));
       if (shiftsResult?.value) setShifts(JSON.parse(shiftsResult.value));
+      if (paymentInfoResult?.value)
+        setPaymentInfo(JSON.parse(paymentInfoResult.value));
     } catch (error) {
       console.error("Error loading data:", error);
     }
@@ -112,6 +131,11 @@ function App() {
     const updated = inventory.filter((item) => item.id !== id);
     setInventory(updated);
     await saveData("inventory", updated);
+  };
+
+  const updatePaymentInfo = async (info) => {
+    setPaymentInfo(info);
+    await saveData("paymentInfo", info);
   };
 
   const updateEmployee = async (id, updates) => {
@@ -297,7 +321,9 @@ function App() {
         <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
           <div className="text-center mb-8">
             <Package className="w-16 h-16 mx-auto text-blue-600 mb-4" />
-            <h1 className="text-3xl font-bold text-gray-800">Pop-Up Store</h1>
+            <h1 className="text-3xl font-bold text-gray-800">
+              Pepper Panic Vintage
+            </h1>
             <p className="text-gray-600">Management System</p>
           </div>
 
@@ -394,6 +420,12 @@ function App() {
       { label: "Record Sale", screen: "sales", icon: DollarSign, show: true },
       { label: "Sales Log", screen: "saleslog", icon: Clock, show: true },
       {
+        label: "Payment Info",
+        screen: "paymentinfo",
+        icon: DollarSign,
+        show: true,
+      },
+      {
         label: "My Payments",
         screen: "mypayments",
         icon: DollarSign,
@@ -423,7 +455,9 @@ function App() {
     return (
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">Pop-Up Store</h1>
+          <h1 className="text-xl font-bold text-gray-800">
+            Pepper Panic Vintage Management System
+          </h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{currentUser?.name}</span>
             <button
@@ -898,7 +932,7 @@ function App() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">
-                        Base Hourly Rate ($)
+                        Base Hourly Rate (₪)
                       </label>
                       <input
                         type="number"
@@ -957,7 +991,7 @@ function App() {
                           <div className="grid grid-cols-2 gap-2 mb-2">
                             <div>
                               <label className="block text-xs text-gray-600 mb-1">
-                                Min Sales ($)
+                                Min Sales (₪)
                               </label>
                               <input
                                 type="number"
@@ -971,7 +1005,7 @@ function App() {
                             </div>
                             <div>
                               <label className="block text-xs text-gray-600 mb-1">
-                                Max Sales ($) - leave empty for unlimited
+                                Max Sales (₪) - leave empty for unlimited
                               </label>
                               <input
                                 type="number"
@@ -1772,24 +1806,27 @@ function App() {
             <label className="block text-sm font-semibold mb-2">
               Payment Method(s) *
             </label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {PAYMENT_METHODS.map((method) => (
                 <button
                   key={method}
                   onClick={() => togglePaymentMethod(method)}
-                  className={`flex-1 p-3 rounded-lg border-2 font-semibold capitalize transition-all ${
+                  className={`p-3 rounded-lg border-2 font-semibold capitalize transition-all ${
                     paymentMethods.includes(method)
                       ? "bg-blue-600 text-white border-blue-600"
                       : "bg-white text-gray-700 border-gray-300 hover:border-blue-400"
                   }`}
                 >
-                  {method}
+                  {method === "bank_transfer" ? "Bank Transfer" : method}
                 </button>
               ))}
             </div>
             {paymentMethods.length > 1 && (
               <p className="text-sm text-blue-600 mt-2">
-                Mixed payment: {paymentMethods.join(" + ")}
+                Mixed payment:{" "}
+                {paymentMethods
+                  .map((m) => (m === "bank_transfer" ? "Bank Transfer" : m))
+                  .join(" + ")}
               </p>
             )}
           </div>
@@ -2102,8 +2139,10 @@ function App() {
           >
             <option value="all">All Payments</option>
             {PAYMENT_METHODS.map((method) => (
-              <option key={method} value={method} className="capitalize">
-                {method}
+              <option key={method} value={method}>
+                {method === "bank_transfer"
+                  ? "Bank Transfer"
+                  : method.charAt(0).toUpperCase() + method.slice(1)}
               </option>
             ))}
           </select>
@@ -2113,7 +2152,9 @@ function App() {
           {filteredSales.map((sale) => {
             const employee = employees.find((e) => e.id === sale.employeeId);
             const paymentDisplay = sale.paymentMethods
-              ? sale.paymentMethods.join(" + ")
+              ? sale.paymentMethods
+                  .map((m) => (m === "bank_transfer" ? "Bank Transfer" : m))
+                  .join(" + ")
               : sale.paymentType || "N/A";
             return (
               <div key={sale.id} className="bg-white border rounded-lg p-4">
@@ -2336,6 +2377,336 @@ function App() {
     );
   };
 
+  // Payment Info Component
+  const PaymentInfo = () => {
+    const isAdmin = currentUser?.role === "admin";
+    const [editing, setEditing] = useState(false);
+    const [formData, setFormData] = useState(paymentInfo);
+
+    const handleSave = async () => {
+      await updatePaymentInfo(formData);
+      setEditing(false);
+    };
+
+    const handleCancel = () => {
+      setFormData(paymentInfo);
+      setEditing(false);
+    };
+
+    return (
+      <div className="p-4 max-w-4xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Payment Transfer Information</h1>
+          {isAdmin && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-6">
+          {/* Bit Section */}
+          <div className="bg-white border rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+              <h2 className="text-xl font-bold">Bit</h2>
+            </div>
+
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Account Holder's Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bit.name}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bit: { ...formData.bit, name: e.target.value },
+                      })
+                    }
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Enter name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.bit.phone}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bit: { ...formData.bit, phone: e.target.value },
+                      })
+                    }
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">Account Holder</span>
+                  <span className="font-semibold">
+                    {paymentInfo.bit.name || "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-gray-600">Phone Number</span>
+                  <span className="font-semibold">
+                    {paymentInfo.bit.phone || "Not set"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Paybox Section */}
+          <div className="bg-white border rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-green-600" />
+              </div>
+              <h2 className="text-xl font-bold">Paybox</h2>
+            </div>
+
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Account Holder's Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.paybox.name}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        paybox: { ...formData.paybox, name: e.target.value },
+                      })
+                    }
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Enter name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.paybox.phone}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        paybox: { ...formData.paybox, phone: e.target.value },
+                      })
+                    }
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">Account Holder</span>
+                  <span className="font-semibold">
+                    {paymentInfo.paybox.name || "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-gray-600">Phone Number</span>
+                  <span className="font-semibold">
+                    {paymentInfo.paybox.phone || "Not set"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bank Transfer Section */}
+          <div className="bg-white border rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-purple-600" />
+              </div>
+              <h2 className="text-xl font-bold">Bank Transfer</h2>
+            </div>
+
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Account Holder's Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_transfer.name}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bank_transfer: {
+                          ...formData.bank_transfer,
+                          name: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Enter name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_transfer.bankName}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bank_transfer: {
+                          ...formData.bank_transfer,
+                          bankName: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Enter bank name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">
+                      Bank Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bank_transfer.bankNumber}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          bank_transfer: {
+                            ...formData.bank_transfer,
+                            bankNumber: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full p-3 border rounded-lg"
+                      placeholder="e.g., 12"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">
+                      Branch Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bank_transfer.branchNumber}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          bank_transfer: {
+                            ...formData.bank_transfer,
+                            branchNumber: e.target.value,
+                          },
+                        })
+                      }
+                      className="w-full p-3 border rounded-lg"
+                      placeholder="e.g., 456"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2">
+                    Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bank_transfer.accountNumber}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        bank_transfer: {
+                          ...formData.bank_transfer,
+                          accountNumber: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full p-3 border rounded-lg"
+                    placeholder="Enter account number"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">Account Holder</span>
+                  <span className="font-semibold">
+                    {paymentInfo.bank_transfer.name || "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">Bank Name</span>
+                  <span className="font-semibold">
+                    {paymentInfo.bank_transfer.bankName || "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">Bank Number</span>
+                  <span className="font-semibold">
+                    {paymentInfo.bank_transfer.bankNumber || "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-gray-600">Branch Number</span>
+                  <span className="font-semibold">
+                    {paymentInfo.bank_transfer.branchNumber || "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2">
+                  <span className="text-gray-600">Account Number</span>
+                  <span className="font-semibold">
+                    {paymentInfo.bank_transfer.accountNumber || "Not set"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {editing && (
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={handleSave}
+              className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700"
+            >
+              Save Changes
+            </button>
+            <button
+              onClick={handleCancel}
+              className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Main render
   if (!currentUser) {
     return <Login />;
@@ -2358,6 +2729,7 @@ function App() {
       )}
       {currentScreen === "sales" && <SalesEntry />}
       {currentScreen === "saleslog" && <SalesLog />}
+      {currentScreen === "paymentinfo" && <PaymentInfo />}
       {currentScreen === "mypayments" && <MyPayments />}
       {currentScreen === "myshifts" && <MyShifts />}
       {currentScreen === "payments" && <AllPayments />}
